@@ -1,0 +1,22 @@
+name: Feature request
+description: Suggest an improvement to Community Claude Code.
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What?
+      description: What would you like Community Claude Code to do?
+      placeholder: Describe the feature.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why?
+      description: Why would this be useful?
+      placeholder: Describe the problem or use case this would address.
+    validations:
+      required: true

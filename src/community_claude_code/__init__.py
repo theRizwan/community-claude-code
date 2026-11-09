@@ -1,0 +1,1 @@
+"""Community Claude Code package."""

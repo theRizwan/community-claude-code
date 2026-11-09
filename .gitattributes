@@ -1,0 +1,3 @@
+src/community_claude_code/core/data/cl100k_base.tiktoken -text linguist-vendored=true
+scripts/update/ccc-update text eol=lf
+scripts/update/*.cmd text eol=crlf

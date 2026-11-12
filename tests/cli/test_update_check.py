@@ -1,4 +1,4 @@
-"""The updater checks published versions before authorizing installation."""
+"""The updater checks the published GitHub release before authorizing installation."""
 
 from importlib.metadata import PackageNotFoundError
 
@@ -7,9 +7,7 @@ import pytest
 
 from community_claude_code.updater import check as update_check
 
-
-def release(version="1.10.0", *, yanked=False):
-    return {"info": {"version": version}, "urls": [{"yanked": yanked}]}
+RELEASE_URL = "https://github.com/theRizwan/community-claude-code/releases/tag/v1.10.0"
 
 
 @pytest.fixture
@@ -18,12 +16,10 @@ def check(monkeypatch):
 
     def run(
         installed="1.9.0",
-        payload=None,
         status=200,
         error=None,
-        body=None,
         print_version=False,
-        release_url="https://github.com/theRizwan/community-claude-code/releases/tag/v1.10.0",
+        release_url=RELEASE_URL,
     ):
         monkeypatch.setattr(update_check, "version", lambda name: installed)
 
@@ -34,12 +30,7 @@ def check(monkeypatch):
                 return httpx.Response(302, headers={"Location": release_url})
             if str(request.url) == release_url:
                 return httpx.Response(status, text="release")
-            assert (
-                str(request.url) == "https://pypi.org/pypi/community-claude-code/1.10.0/json"
-            )
-            if body is not None:
-                return httpx.Response(status, content=body)
-            return httpx.Response(status, json=payload)
+            raise AssertionError(str(request.url))
 
         monkeypatch.setattr(
             update_check.httpx,
@@ -64,41 +55,15 @@ def check(monkeypatch):
     ],
 )
 def test_version_comparison(check, capsys, installed, expected):
-    assert check(installed, release()) == expected
+    assert check(installed) == expected
     output = capsys.readouterr()
     assert installed in output.out
     assert not output.err
 
 
-@pytest.mark.parametrize(
-    "payload",
-    [
-        None,
-        {},
-        {"info": []},
-        release("invalid"),
-        release("2.0rc1"),
-        release("2.0.dev1"),
-        release("2.0"),
-        release("v2.0.0"),
-        release("02.0.0"),
-        release("2.0.0.post1"),
-        release("2.0.0+local"),
-        release("2.0.0\n3.0.0"),
-        release("2.0.0/../main"),
-        release(yanked=True),
-        {"info": {"version": "2.0"}, "urls": []},
-        {"info": {"version": "2.0"}, "urls": [{}]},
-    ],
-)
-def test_invalid_release_does_not_authorize_installation(check, capsys, payload):
-    assert check(payload=payload) == 1
-    assert capsys.readouterr().err
-
-
 @pytest.mark.parametrize("installed", ["invalid", "0+unknown"])
 def test_unknown_installed_version(check, installed):
-    assert check(installed, release()) == 1
+    assert check(installed) == 1
 
 
 def test_missing_distribution(monkeypatch, capsys):
@@ -111,7 +76,7 @@ def test_missing_distribution(monkeypatch, capsys):
 
 
 def test_http_error(check, capsys):
-    assert check(payload=release(), status=503) == 1
+    assert check(status=503) == 1
     assert capsys.readouterr().err
 
 
@@ -120,22 +85,23 @@ def test_timeout(check, capsys):
     assert capsys.readouterr().err
 
 
-def test_malformed_json(check, capsys):
-    assert check(body="not JSON") == 1
-    assert capsys.readouterr().err
-
-
 @pytest.mark.parametrize("installed", ["1.9.0", "1.10.0", "1.11.0"])
 def test_print_version_is_only_the_authorized_release(check, capsys, installed):
     expected = 10 if installed == "1.9.0" else 0
-    assert check(installed, release(), print_version=True) == expected
+    assert check(installed, print_version=True) == expected
     output = capsys.readouterr()
     assert output.out == ("1.10.0\n" if expected == 10 else "")
     assert installed in output.err
 
 
 def test_failed_preflight_prints_no_release(check, capsys):
-    assert check(payload=release("2.0.0/../main"), print_version=True) == 1
+    assert (
+        check(
+            print_version=True,
+            release_url="https://github.com/theRizwan/community-claude-code/releases/tag/v2.0.0/../main",
+        )
+        == 1
+    )
     output = capsys.readouterr()
     assert output.out == ""
     assert output.err
@@ -148,7 +114,6 @@ def test_failed_preflight_prints_no_release(check, capsys):
 def test_invalid_github_release_does_not_authorize_installation(check, suffix):
     assert (
         check(
-            payload=release(),
             release_url="https://github.com/theRizwan/community-claude-code/releases/tag/"
             + suffix,
         )
@@ -159,12 +124,7 @@ def test_invalid_github_release_does_not_authorize_installation(check, suffix):
 def test_release_from_another_repository_is_rejected(check):
     assert (
         check(
-            payload=release(),
             release_url="https://github.com/other/repo/releases/tag/v1.10.0",
         )
         == 1
     )
-
-
-def test_pypi_metadata_must_match_selected_github_release(check):
-    assert check(payload=release("1.11.0")) == 1

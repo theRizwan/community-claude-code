@@ -144,15 +144,6 @@ class Publisher:
                 if command(["git", "status", "--porcelain"], cwd=source).strip():
                     raise ValueError("Release source must be clean")
                 self.stage(tag, release["id"], version, source, dist)
-                command(
-                    [
-                        "uv",
-                        "publish",
-                        "--trusted-publishing",
-                        "always",
-                        *(str(dist / name) for name in distribution_names(version)),
-                    ]
-                )
                 self.gh("edit", tag, "--draft=false", "--latest", "--verify-tag")
             finally:
                 if not source.is_relative_to(root):

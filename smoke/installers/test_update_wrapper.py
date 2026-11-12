@@ -119,9 +119,6 @@ def fixture_wheel(area, url, outcome):
             archive.writestr(
                 f"community_claude_code/{name}",
                 source.replace(
-                    "https://pypi.org/pypi/community-claude-code/{version}/json",
-                    url + "/metadata/{version}/json",
-                ).replace(
                     "https://github.com/theRizwan/community-claude-code/releases/",
                     url + "/releases/",
                 ),

@@ -9,7 +9,6 @@ import httpx
 from packaging.version import Version
 
 RELEASE_URL = "https://github.com/theRizwan/community-claude-code/releases/"
-PYPI_URL = "https://pypi.org/pypi/community-claude-code/{version}/json"
 UPDATE_AVAILABLE = 10
 
 
@@ -35,23 +34,11 @@ def main(argv: list[str] | None = None) -> int:
             if selected is None:
                 raise ValueError("GitHub did not return a canonical CCC release URL")
             published = selected[1]
-            response = client.get(PYPI_URL.format(version=published))
-            response.raise_for_status()
-            metadata = response.json()
-        if metadata["info"]["version"] != published:
-            raise ValueError("PyPI metadata does not match the selected CCC release")
         latest = Version(published)
-        files = metadata["urls"]
-        if not isinstance(files, list) or not any(
-            isinstance(file, dict) and file.get("yanked") is False for file in files
-        ):
-            raise ValueError("PyPI did not return an available stable CCC release")
     except (
         PackageNotFoundError,
         httpx.HTTPError,
         ValueError,
-        KeyError,
-        TypeError,
     ) as exc:
         print(f"Could not check for CCC updates: {exc}. Please retry.", file=sys.stderr)
         return 1

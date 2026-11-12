@@ -75,7 +75,6 @@ class FakeRemote:
         self.fail = None
         self.builds = 0
         self.native_builds = []
-        self.uploaded = {}
         self.real_command = publishing.command
 
     def command(self, args, *, cwd=None):
@@ -156,15 +155,6 @@ class FakeRemote:
             out = Path(args[args.index("--out-dir") + 1])
             for name in publishing.distribution_names(version):
                 (out / name).write_bytes(f"build {self.builds}: {name}".encode())
-        elif args[:2] == ["uv", "publish"]:
-            for file in map(Path, args[4:]):
-                data = file.read_bytes()
-                if file.name in self.uploaded:
-                    assert self.uploaded[file.name] == data
-                self.uploaded[file.name] = data
-                if self.fail == "publish":
-                    self.fail = None
-                    raise RuntimeError("interrupted publication")
         elif args[0] == publishing.sys.executable:
             assert cwd is not None
             assert Path(args[1]).parent == Path(cwd) / "scripts"
@@ -213,8 +203,8 @@ def test_historical_release_without_native_builder_can_resume(releases):
     repo, remote = releases
     git(repo, "rm", "scripts/build_macos_launcher.py")
     head = remote.advance()
-    remote.fail = "publish"
-    with pytest.raises(RuntimeError, match="interrupted publication"):
+    remote.fail = "finalize"
+    with pytest.raises(RuntimeError, match="interrupted finalization"):
         remote.publisher().publish(head)
     remote.publisher().publish(head)
     assert remote.native_builds == []
@@ -243,24 +233,26 @@ def test_stale_release_list_does_not_block_staging(
     monkeypatch.setattr(publishing, "command", stale_listing)
     remote.publisher().publish(head)
     assert not remote.releases["v1.2.4"]["draft"]
-    assert set(remote.uploaded) == set(publishing.distribution_names("1.2.4"))
+    assert set(remote.files) == {
+        ("v1.2.4", name) for name in publishing.distribution_names("1.2.4")
+    }
 
 
-@pytest.mark.parametrize("failure", ["stage", "publish", "finalize"])
+@pytest.mark.parametrize("failure", ["stage", "finalize"])
 def test_retries_keep_version_and_published_bytes(releases, failure):
     repo, remote = releases
     head = remote.advance()
     remote.fail = failure
     with pytest.raises(RuntimeError):
         remote.publisher().publish(head)
-    first_uploaded = dict(remote.uploaded)
+    first_uploaded = dict(remote.files)
     assert remote.releases["v1.2.4"]["draft"]
     remote.publisher().publish(head)
     assert not remote.releases["v1.2.4"]["draft"]
     assert git(repo, "rev-parse", "v1.2.4") == head
     assert remote.builds == (2 if failure == "stage" else 1)
     assert remote.native_builds == [head] * remote.builds
-    assert all(remote.uploaded[name] == value for name, value in first_uploaded.items())
+    assert all(remote.files[key] == value for key, value in first_uploaded.items())
     builds = remote.builds
     remote.publisher().publish(head)
     assert remote.builds == builds
@@ -280,7 +272,7 @@ def test_later_commit_waits_even_if_previous_failed_before_tag(releases):
 def test_later_commit_waits_for_draft_and_old_retry_is_noop(releases):
     _, remote = releases
     first = remote.advance()
-    remote.fail = "publish"
+    remote.fail = "finalize"
     with pytest.raises(RuntimeError):
         remote.publisher().publish(first)
     second = remote.advance("major: Second")
@@ -333,21 +325,19 @@ def test_reserved_tag_and_missing_draft_can_resume(releases):
 def test_staged_bytes_are_verified_before_any_retry_upload(releases):
     _, remote = releases
     head = remote.advance()
-    remote.fail = "publish"
+    remote.fail = "finalize"
     with pytest.raises(RuntimeError):
         remote.publisher().publish(head)
     name = publishing.distribution_names("1.2.4")[0]
     remote.files["v1.2.4", name] = b"corrupted"
-    before = len(remote.calls)
     with pytest.raises(ValueError, match="verification"):
         remote.publisher().publish(head)
-    assert not any(c[:2] == ["uv", "publish"] for c in remote.calls[before:])
 
 
 def test_no_release_does_not_wait_for_an_unfinished_release(releases):
     _, remote = releases
     first = remote.advance()
-    remote.fail = "publish"
+    remote.fail = "finalize"
     with pytest.raises(RuntimeError):
         remote.publisher().publish(first)
     docs = remote.advance("Explain the release", "README.md")

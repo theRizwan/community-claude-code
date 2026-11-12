@@ -44,8 +44,8 @@ def test_post_merge_serializes_and_limits_publish_permissions():
     )
     assert setup["with"]["runner-label"] == publish["runs-on"]
     assert "needs" not in publish
-    assert publish["environment"] == "pypi"
-    assert publish["permissions"] == {"contents": "write", "id-token": "write"}
+    assert "environment" not in publish
+    assert publish["permissions"] == {"contents": "write"}
     assert cache["permissions"] == {"contents": "read"}
     for job in (cache, publish):
         assert job["if"] == "github.ref == 'refs/heads/main'"

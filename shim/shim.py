@@ -38,7 +38,6 @@ LOG = logging.getLogger("ccc.shim")
 DEFAULT_OPENCODE_BIN = r"C:\nvm4w\nodejs\node_modules\opencode-ai\bin\opencode.exe"
 DEFAULT_MODEL = ",".join(
     [
-        "opencode/big-pickle",
         "opencode/pulse-alpha-free",
         "opencode/glm-5.3-flash-free",
         "opencode/deepseek-v4.1-flash-free",
@@ -48,6 +47,7 @@ DEFAULT_MODEL = ",".join(
         "opencode/nemotron-3.5-super-vl-free",
         "opencode/crouton-alpha-free",
         "opencode/beam-free",
+        "opencode/big-pickle",
     ]
 )
 DEFAULT_PUBLIC_MODEL = "opus-5.5"

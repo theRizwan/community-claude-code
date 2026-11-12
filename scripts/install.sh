@@ -4,6 +4,7 @@ set -eu
 # Filled from the selected release before installation; placeholders are for dry-run.
 PYTHON_VERSION="<release-python>"
 MIN_UV_VERSION="<release-uv-minimum>"
+CCC_REPO_URL="https://github.com/theRizwan/community-claude-code"
 CLAUDE_INSTALL_URL="https://claude.ai/install.sh"
 CODEX_INSTALL_URL="https://chatgpt.com/codex/install.sh"
 PI_INSTALL_URL="https://pi.dev/install.sh"
@@ -1629,15 +1630,17 @@ validate_args() {
 }
 
 package_spec() {
+    local name='community-claude-code'
     if [ "$voice_local" -eq 1 ]; then
-        printf '%s' 'community-claude-code[voice_local]'
-    else
-        printf '%s' 'community-claude-code'
+        name='community-claude-code[voice_local]'
     fi
     if [ -n "$ccc_install_version" ]; then
-        printf '==%s' "$ccc_install_version"
+        printf '%s @ git+%s@v%s' "$name" "$CCC_REPO_URL" "$ccc_install_version"
     elif [ "$dry_run" -eq 1 ]; then
-        printf '%s' '==<selected-release>'
+        printf '%s @ git+%s@v<selected-release>' "$name" "$CCC_REPO_URL"
+    else
+        printf 'error: no CCC release selected\n' >&2
+        return 1
     fi
 }
 
@@ -1877,6 +1880,7 @@ install_stage_count=$(printf '%s\n' "$pending_steps" | wc -l)
 
 step "Checking installation prerequisites"
 require_command curl
+require_command git
 if [ "$install_claude" -eq 1 ] || [ "$install_opencode" -eq 1 ] || [ "$install_hermes" -eq 1 ] || [ "$install_grok" -eq 1 ] || [ "$install_muse" -eq 1 ] || [ "$install_agy" -eq 1 ]; then
     require_command bash
 fi

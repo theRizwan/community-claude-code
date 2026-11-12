@@ -15,6 +15,7 @@ $ProgressPreference = "SilentlyContinue"
 # Filled from the selected release before installation; placeholders are for dry-run.
 $PythonRequest = "<release-python>"
 $MinUvVersion = "<release-uv-minimum>"
+$CccRepoUrl = "https://github.com/theRizwan/community-claude-code"
 $ClaudeInstallUrl = "https://claude.ai/install.ps1"
 $CodexInstallUrl = "https://chatgpt.com/codex/install.ps1"
 $PiInstallUrl = "https://pi.dev/install.ps1"
@@ -1798,15 +1799,19 @@ function Ensure-Uv {
 }
 
 function Get-PackageSpec {
-    $spec = if ($VoiceLocal) { "community-claude-code[voice_local]" } else { "community-claude-code" }
-    if ($CccInstallVersion) { $spec += "==$CccInstallVersion" }
-    elseif ($DryRun) { $spec += "==<selected-release>" }
-    return $spec
+    $name = if ($VoiceLocal) { "community-claude-code[voice_local]" } else { "community-claude-code" }
+    $ref = if ($CccInstallVersion) { "v$CccInstallVersion" }
+    elseif ($DryRun) { "v<selected-release>" }
+    else { throw "No Community Claude Code release was selected." }
+    return "$name @ git+$CccRepoUrl@$ref"
 }
 
 function Install-CommunityClaudeCode {
     Assert-NoCccProcessesRunning
     $packageSpec = Get-PackageSpec
+    if (-not $DryRun -and -not (Get-ApplicationCommand "git")) {
+        throw "git is required to install Community Claude Code from GitHub."
+    }
     $arguments = @(
         "tool",
         "install",

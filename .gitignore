@@ -17,3 +17,4 @@ llama_cache
 /test-results/
 .vscode
 /src/community_claude_code/assets/macos/ccc-desktop-*
+.DS_Store

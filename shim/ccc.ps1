@@ -169,7 +169,7 @@ function Resolve-Paths($Config) {
     $shimCandidates = @(
         $Config.shimPath,
         (Join-Path $ScriptDir "shim.py"),
-        (Join-Path $repo "shim.py")
+        $(if ($repo) { Join-Path $repo "shim.py" } else { "" })
     )
     $shim = Find-FirstFile $shimCandidates
 

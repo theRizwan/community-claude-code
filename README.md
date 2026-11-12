@@ -39,7 +39,7 @@ curl -fsSL "https://raw.githubusercontent.com/theRizwan/community-claude-code/ma
 Windows PowerShell:
 
 ```powershell
-& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/theRizwan/community-claude-code/main/scripts/install.ps1")))
+irm "https://raw.githubusercontent.com/theRizwan/community-claude-code/main/scripts/install.ps1" | iex
 ```
 
 When prompted, choose at least one coding agent and optionally enable [RTK](https://github.com/rtk-ai/rtk) + [Headroom](https://github.com/headroomlabs-ai/headroom) token optimization for supported agents.
@@ -256,13 +256,13 @@ For local voice support, include `--voice-local` (macOS/Linux) or `-VoiceLocal` 
 To install or update only Muse Code:
 
 ```powershell
-& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/theRizwan/community-claude-code/main/scripts/install-muse.ps1")))
+irm "https://raw.githubusercontent.com/theRizwan/community-claude-code/main/scripts/install-muse.ps1" | iex
 ```
 
 To remove the Muse Code copy installed by CCC, keeping its data:
 
 ```powershell
-& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/theRizwan/community-claude-code/main/scripts/uninstall-muse.ps1")))
+irm "https://raw.githubusercontent.com/theRizwan/community-claude-code/main/scripts/uninstall-muse.ps1" | iex
 ```
 
 Uninstalling CCC leaves Muse Code installed.
@@ -290,7 +290,7 @@ curl -fsSL "https://raw.githubusercontent.com/theRizwan/community-claude-code/ma
 Windows PowerShell:
 
 ```powershell
-& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/theRizwan/community-claude-code/main/scripts/uninstall.ps1")))
+irm "https://raw.githubusercontent.com/theRizwan/community-claude-code/main/scripts/uninstall.ps1" | iex
 ```
 
 ## Project Links

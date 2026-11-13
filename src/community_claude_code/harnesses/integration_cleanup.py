@@ -92,7 +92,7 @@ def disconnect_integrations(paths: IntegrationPaths | None = None) -> None:
     paths = paths or IntegrationPaths.current()
     try:
         settings = _connection_settings(paths.env)
-    except OSError, ValueError:
+    except (OSError, ValueError):
         raise IntegrationCleanupError(
             "Could not read CCC's connection settings. Correct the managed config "
             "or disconnect the integrations manually before uninstalling."
@@ -151,7 +151,7 @@ def disconnect_integrations(paths: IntegrationPaths | None = None) -> None:
     for name, operation in operations:
         try:
             operation()
-        except OSError, ValueError:
+        except (OSError, ValueError):
             raise IntegrationCleanupError(
                 f"Could not disconnect {name}. Check its local settings and permissions, "
                 "close the app, then retry. If its connection details changed, disconnect "

@@ -35,6 +35,14 @@ def launch(argv: Sequence[str] | None = None) -> None:
 
     enable_dpi_awareness()
 
+    if auto_started:
+        # The desktop owner is the proxy process; only bring up the shared
+        # OpenCode server and shim here so ensure_proxy_available() cannot
+        # spawn another copy of this entrypoint.
+        from community_claude_code.cli.bootstrap import start_runtimes
+
+        start_runtimes()
+
     from community_claude_code.cli.desktop_tray import launch as launch_tray
 
     launch_tray(auto_started=auto_started)

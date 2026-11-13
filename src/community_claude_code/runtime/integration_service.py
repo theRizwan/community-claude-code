@@ -183,7 +183,7 @@ class IntegrationService:
                     result = await run_sync_owned(connect)
                     self._antigravity_update.complete()
                     return result
-        except ValueError, UnicodeError:
+        except (ValueError, UnicodeError):
             raise InvalidRequestError(
                 "Could not configure Antigravity CLI. Check settings.json and the CCC connection record for invalid JSON or conflicting model entries."
             ) from None
@@ -381,7 +381,7 @@ class IntegrationService:
                     return result
         except dsh_desktop_integration.DshConfigError as exc:
             raise InvalidRequestError(str(exc)) from None
-        except ValueError, UnicodeError:
+        except (ValueError, UnicodeError):
             raise InvalidRequestError(
                 "Could not read DSH Desktop configuration. Correct the invalid document and retry."
             ) from None
@@ -457,7 +457,7 @@ class IntegrationService:
                     if action in {"connect", "disconnect"}:
                         self._vscode_update.complete()
                     return result
-        except ValueError, UnicodeError:
+        except (ValueError, UnicodeError):
             raise InvalidRequestError(
                 "Could not configure VS Code Chat. Check chatLanguageModels.json for invalid JSON or conflicting CCC groups."
             ) from None
@@ -501,7 +501,7 @@ class IntegrationService:
                 result = await run_sync_owned(operate)
                 self._check_integration_available()
                 return result
-        except ValueError, UnicodeError:
+        except (ValueError, UnicodeError):
             raise InvalidRequestError(
                 "Could not read Claude onboarding state. Check the JSON in .claude.json."
             ) from None
@@ -639,7 +639,7 @@ class IntegrationService:
             return await self._run_integration(self._jetbrains_update, action, operate)
         except jetbrains_acp_integration.SetupError as exc:
             raise InvalidRequestError(str(exc)) from None
-        except ValueError, UnicodeError:
+        except (ValueError, UnicodeError):
             raise InvalidRequestError(
                 "Could not read JetBrains ACP configuration. Check the JSON in acp.json and the installed Claude Agent metadata."
             ) from None
@@ -698,7 +698,7 @@ class IntegrationService:
             raise InvalidRequestError(
                 "Claude Desktop has data in its previous Windows location. Launch Claude Desktop once so it can migrate that data, fully quit it, then retry Connect."
             ) from None
-        except ValueError, UnicodeError:
+        except (ValueError, UnicodeError):
             raise InvalidRequestError(
                 "Could not configure Claude Desktop. Check its configuration JSON and CCC disconnect record, and ensure CCC uses a localhost address and a nonempty managed token."
             ) from None
@@ -742,7 +742,7 @@ class IntegrationService:
             return await self._run_integration(
                 self._claude_update, action, operate, mask_when_unready=True
             )
-        except ValueError, UnicodeError:
+        except (ValueError, UnicodeError):
             files = (
                 "VS Code settings.json and .claude.json"
                 if action == "connect"
@@ -841,7 +841,7 @@ class IntegrationService:
                     if action in {"connect", "disconnect"}:
                         self._codex_update.complete()
                     return result
-        except ValueError, UnicodeError:
+        except (ValueError, UnicodeError):
             raise InvalidRequestError(
                 "Could not read Codex settings. Check the TOML in config.toml."
             ) from None

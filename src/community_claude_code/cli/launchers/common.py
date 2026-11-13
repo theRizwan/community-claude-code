@@ -29,7 +29,7 @@ from community_claude_code.core.interprocess_lock import InterprocessFileLock
 PROXY_PREFLIGHT_PATH = "/health"
 PROXY_PREFLIGHT_TIMEOUT_SECONDS = 1.5
 
-SERVER_STARTUP_TIMEOUT_SECONDS = 30.0
+SERVER_STARTUP_TIMEOUT_SECONDS = 90.0
 SERVER_STARTUP_LOCK_TIMEOUT_SECONDS = 30.0
 SERVER_STARTUP_POLL_SECONDS = 0.25
 
@@ -85,7 +85,7 @@ def _probe_proxy(proxy_root_url: str, *, deadline: float) -> ProxyProbe:
                     timeout=min(PROXY_PREFLIGHT_TIMEOUT_SECONDS, remaining),
                 ):
                     pass
-            except ConnectionRefusedError, TimeoutError:
+            except (ConnectionRefusedError, TimeoutError):
                 return ProxyProbe(ProxyState.UNREACHABLE, str(reason))
             except OSError as exc:
                 return ProxyProbe(ProxyState.NETWORK_ERROR, str(exc))
@@ -208,7 +208,7 @@ def _stop_owned_process(process: subprocess.Popen[bytes]) -> None:
         try:
             process.kill()
             process.wait(timeout=2)
-        except OSError, subprocess.TimeoutExpired:
+        except (OSError, subprocess.TimeoutExpired):
             pass
     except OSError:
         pass

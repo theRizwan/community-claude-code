@@ -35,16 +35,16 @@ $RtkWindowsAssetName = "rtk-x86_64-pc-windows-msvc.zip"
 $RtkWindowsAssetSha256 = "3a1e114edce9080f8a10663e9c87488363a82f14a5ca8aab2ad416817f89d47c"
 $UvInstallUrl = "https://astral.sh/uv/install.ps1"
 $script:InstallClaudeCode = $true
-$script:InstallCodex = $true
-$script:InstallPi = $true
+$script:InstallCodex = $false
+$script:InstallPi = $false
 $script:InstallOpenCode = $true
 $script:InstallCline = $false
-$script:InstallHermes = $true
-$script:InstallDsh = $true
-$script:InstallGrok = $true
-$script:InstallMuse = $true
-$script:InstallAider = $true
-$script:InstallAgy = $true
+$script:InstallHermes = $false
+$script:InstallDsh = $false
+$script:InstallGrok = $false
+$script:InstallMuse = $false
+$script:InstallAider = $false
+$script:InstallAgy = $false
 $script:PiAvailable = $false
 $script:MuseAvailable = $false
 $script:EnableRtkHeadroom = $RtkHeadroom.IsPresent
@@ -60,6 +60,8 @@ $script:InstallStageNumber = 0
 $script:InstallStageCount = 0
 $script:CccVerified = $false
 $script:DesktopReady = $false
+$script:CccDesktopCommand = ""
+$script:CccIconPath = ""
 $script:HeadroomPath = ""
 $CccCommands = @(
     # Include retired entry points so updates reject older CCC processes before replacement.
@@ -86,7 +88,8 @@ function Show-Usage {
     @"
 Usage: install.ps1 [options]
 
-Installs or updates Community Claude Code and lets you choose which coding agents to install or verify.
+Installs or updates Community Claude Code with Claude Code, Claude Desktop, and OpenCode.
+The installer is non-interactive and starts the CCC proxy in the background.
 
 Options:
   -VoiceLocal            Install local Whisper voice transcription support.
@@ -220,32 +223,6 @@ Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-CodeIntegrity/Operati
     }
 }
 
-function Test-InteractiveInstaller {
-    return (-not [Console]::IsInputRedirected) -and (-not [Console]::IsOutputRedirected)
-}
-
-function Read-YesNo {
-    param(
-        [string] $Prompt,
-        [bool] $DefaultYes = $false
-    )
-
-    while ($true) {
-        $hint = if ($DefaultYes) { "[Y/n]" } else { "[y/N]" }
-        $answer = ([string] (Read-Host "$Prompt $hint")).Trim().ToLowerInvariant()
-        if ($answer -eq "") {
-            return $DefaultYes
-        }
-        if ($answer -in @("y", "yes")) {
-            return $true
-        }
-        if ($answer -in @("n", "no")) {
-            return $false
-        }
-        Write-Host "Please answer Y or N."
-    }
-}
-
 function Find-InstalledCodingAgent {
     param([string] $CommandName)
 
@@ -297,48 +274,6 @@ function Find-InstalledCodingAgent {
     finally {
         # Environment variables are process-wide, even inside a function.
         $env:Path = $originalPath
-    }
-}
-
-function Read-CodingAgentSelection {
-    param(
-        [string] $CommandName,
-        [string] $DisplayName,
-        [string] $CccCommand
-    )
-
-    if (Find-InstalledCodingAgent $CommandName) {
-        Write-Host "$DisplayName already installed; will verify."
-        return $true
-    }
-    return Read-YesNo -Prompt "Install $DisplayName for ${CccCommand}?"
-}
-
-function Select-CodingAgents {
-    while ($true) {
-        $script:InstallClaudeCode = Read-CodingAgentSelection claude "Claude Code" ccc-claude
-        $script:InstallCodex = Read-CodingAgentSelection codex Codex ccc-codex
-        $script:InstallPi = Read-CodingAgentSelection pi Pi ccc-pi
-        $script:InstallOpenCode = Read-CodingAgentSelection opencode OpenCode ccc-opencode
-        $script:InstallCline = Read-CodingAgentSelection cline "Cline CLI" ccc-cline
-        $script:InstallHermes = Read-CodingAgentSelection hermes "Hermes Agent" ccc-hermes
-        $script:InstallDsh = Read-CodingAgentSelection dsh "DeepSeek Harness" ccc-dsh
-        $script:InstallGrok = Read-CodingAgentSelection grok "Grok Build" ccc-grok
-        $script:InstallMuse = Read-CodingAgentSelection muse "Muse Code" ccc-muse
-        $script:InstallAider = Read-CodingAgentSelection aider Aider ccc-aider
-        $script:InstallAgy = Read-CodingAgentSelection agy "Antigravity CLI" ccc-agy
-
-        if ($script:InstallClaudeCode -or $script:InstallCodex -or $script:InstallPi -or $script:InstallOpenCode -or $script:InstallCline -or $script:InstallHermes -or $script:InstallDsh -or $script:InstallGrok -or $script:InstallMuse -or $script:InstallAider -or $script:InstallAgy) {
-            break
-        }
-        Write-Host "Select at least one coding agent."
-        Write-Host ""
-    }
-
-    if (-not $script:EnableRtkHeadroom) {
-        $script:EnableRtkHeadroom = Read-YesNo `
-            -Prompt "Enable RTK + Headroom token optimization?" `
-            -DefaultYes $false
     }
 }
 
@@ -892,6 +827,42 @@ function Ensure-ClaudeCode {
     Confirm-Application -CommandName "claude" -DisplayName "Claude Code"
 }
 
+function Ensure-ClaudeDesktop {
+    if (Get-ApplicationCommand "claude-desktop") {
+        $script:InstallStepOutcome = "Reused"
+        Write-Host "Claude Desktop already found on PATH; verifying it."
+        return
+    }
+    if ($DryRun) {
+        Write-Host "+ winget install --id Anthropic.Claude --exact --silent --accept-package-agreements --accept-source-agreements --disable-interactivity"
+        Write-Host "+ claude-desktop (verify)"
+        return
+    }
+    $winget = Get-ApplicationCommand "winget"
+    if (-not $winget) {
+        throw "Claude Desktop installation requires winget. Install the App Installer from Microsoft Store, then rerun the installer."
+    }
+    Invoke-NativeCommand -FilePath $winget.Source -Arguments @(
+        "install",
+        "--id",
+        "Anthropic.Claude",
+        "--exact",
+        "--source",
+        "winget",
+        "--silent",
+        "--accept-package-agreements",
+        "--accept-source-agreements",
+        "--disable-interactivity"
+    )
+    Add-KnownBinDirectories
+    if (-not (Get-ApplicationCommand "claude-desktop")) {
+        $packageRoot = Join-Path $env:LOCALAPPDATA "Packages"
+        if (-not (Get-ChildItem -LiteralPath $packageRoot -Filter "Claude_*" -ErrorAction SilentlyContinue)) {
+            throw "Claude Desktop was installed, but its 'claude-desktop' command is not available."
+        }
+    }
+}
+
 function Ensure-Codex {
     if (Get-ApplicationCommand "codex") {
         $script:InstallStepOutcome = "Reused"
@@ -1060,9 +1031,19 @@ function Get-OpenCodeWindowsAssetName {
 }
 
 function Assert-NoOpenCodeProcessesRunning {
-    if (@(Get-Process -Name opencode,opencode2 -ErrorAction SilentlyContinue).Count -gt 0) {
-        throw "Close OpenCode before replacing its executable or RTK plugin, then rerun the installer."
+    $running = @(Get-Process -Name opencode,opencode2 -ErrorAction SilentlyContinue)
+    if ($running.Count -eq 0) { return }
+    try {
+        $health = Invoke-RestMethod -Uri "http://127.0.0.1:4096/global/health" -TimeoutSec 2 -ErrorAction Stop
+        if ($health.healthy -and $health.version -match '^1\.19\.') {
+            Write-Host "OpenCode 1.19.x server is running; leaving it in place."
+            return
+        }
     }
+    catch {
+        # Not our reusable v1 server; replacing it requires stopping it.
+    }
+    throw "Close OpenCode before replacing its executable or RTK plugin, then rerun the installer."
 }
 
 function Install-OpenCode {
@@ -1200,63 +1181,63 @@ function Get-OpenCodeInstallState {
     return [pscustomobject] @{ Action = $action; Command = $command; Version = $version; PluginPath = $pluginPath }
 }
 
+function Ensure-NodeRuntime {
+    if (Get-ApplicationCommand "npm") { return }
+
+    Write-Host "Node.js is required to install the OpenCode 1 runtime."
+    $winget = Get-ApplicationCommand "winget"
+    if (-not $winget) {
+        throw "OpenCode installation requires npm. Install Node.js from https://nodejs.org/en/download, then rerun the installer."
+    }
+    Invoke-NativeCommand -FilePath $winget.Source -Arguments @(
+        "install",
+        "--id",
+        "OpenJS.NodeJS.LTS",
+        "--exact",
+        "--source",
+        "winget",
+        "--silent",
+        "--accept-package-agreements",
+        "--accept-source-agreements",
+        "--disable-interactivity"
+    )
+    Add-KnownBinDirectories
+}
+
 function Ensure-OpenCode {
-    $command = if ($script:OriginalOpenCode) { $script:OriginalOpenCode } else { Get-ApplicationCommand "opencode" }
-    $nativePath = Join-Path $env:USERPROFILE ".opencode\bin\opencode.exe"
+    # The free-model shim uses the OpenCode 1 session API, so pin 1.19.x.
+    $wanted = "1.19.5"
+    $command = Get-ApplicationCommand "opencode"
+    if ($command) {
+        $version = Get-OpenCodeVersion $command.Source
+        if ($version -match '^1\.19\.') {
+            $script:InstallStepOutcome = "Reused"
+            Write-Host "OpenCode $version already found on PATH; reusing it."
+            return
+        }
+    }
     if ($DryRun) {
-        Write-Host "+ opencode --version"
-        Write-Host "Install stable OpenCode 2 if absent; retain stable v2."
-        Write-Host "For v1 below 1.19.0: discover latest stable v1 and run opencode upgrade <latest-v1>, then verify."
-        Write-Host "For remaining stable v1 at or above 1.19.0: run opencode upgrade --major, then verify stable v2."
-        Write-Host "Check and back up the recognized old OpenCode RTK plugin if present."
-        if (-not $command) { Install-OpenCode }
+        Write-Host "+ npm install -g opencode-ai@$wanted --force"
+        Write-Host "+ opencode --version (verify 1.19.x)"
         return
     }
 
-    $state = Get-OpenCodeInstallState
-    $pluginPath = $state.PluginPath
-    if ($state.Action -eq "install") {
-        Install-OpenCode
-        Add-KnownBinDirectories
-        if ((Get-OpenCodeVersion $nativePath) -notmatch '^2\.') {
-            throw "The OpenCode installer did not install stable OpenCode 2 at '$nativePath'."
-        }
+    Assert-NoOpenCodeProcessesRunning
+    Ensure-NodeRuntime
+    $npm = Get-ApplicationCommand "npm"
+    if (-not $npm) {
+        throw "OpenCode installation requires npm. Install Node.js from https://nodejs.org/en/download, then rerun the installer."
     }
-    elseif ($state.Action -eq "upgrade") {
-        $command = $state.Command
-        $version = $state.Version
-        if ([version] ($version -replace '\+.*$', '') -lt [version] "1.19.0") {
-            $target = Get-LatestOpenCodeV1
-            $upgraded = Invoke-OpenCodeUpgrade -OpenCodePath $command.Source -Target $target
-            $command = $upgraded.Command
-            $version = $upgraded.Version
-            if ($version -notmatch '^2\.' -and ($version -replace '\+.*$', '') -ne $target) {
-                throw "OpenCode upgrade $target left '$version' at '$($command.Source)'. Finish the official upgrade manually, then rerun the installer."
-            }
-        }
-        if ($version -match '^1\.') {
-            $null = Invoke-OpenCodeUpgrade -OpenCodePath $command.Source -Target "--major"
-        }
-    }
-    else {
-        if (-not $pluginPath) { $script:InstallStepOutcome = "Reused" }
-    }
-    # Check the command selected after the installer's PATH additions.
+    Invoke-NativeCommand -FilePath $npm.Source -Arguments @("install", "-g", "opencode-ai@$wanted", "--force")
+    Add-NpmBinDirectories
+
     $command = Get-ApplicationCommand "opencode"
     if (-not $command) { throw "OpenCode is not available on PATH after installation." }
     $version = Get-OpenCodeVersion $command.Source
-    if ($version -notmatch '^2\.') {
-        throw "OpenCode at '$($command.Source)' is not stable OpenCode 2 (found '$version'). Correct PATH or finish the official upgrade manually, then rerun the installer."
+    if ($version -notmatch '^1\.19\.') {
+        throw "OpenCode at '$($command.Source)' is not 1.19.x (found '$version'). Remove the conflicting OpenCode 2 installation, then rerun the installer."
     }
     Write-Host "Verified OpenCode $version at '$($command.Source)'."
-    if ($pluginPath) {
-        $pluginPath = Get-OpenCodeRtkPlugin
-        if (-not $pluginPath) { return }
-        $backupPath = Join-Path (Split-Path -Parent (Split-Path -Parent $pluginPath)) ("rtk-v1-" + [guid]::NewGuid().ToString("N") + ".bak")
-        Assert-NoOpenCodeProcessesRunning
-        Move-Item -LiteralPath $pluginPath -Destination $backupPath -ErrorAction Stop
-        Write-Host "OpenCode 2 RTK support is unavailable; the old plugin was saved at '$backupPath'."
-    }
 }
 
 function Ensure-Cline {
@@ -1871,13 +1852,47 @@ function Export-CccDesktopIcon {
     }
 }
 
+function Invoke-CccBootstrap {
+    param([string[]] $Arguments)
+
+    $commandText = Format-Command -FilePath "ccc-bootstrap" -Arguments $Arguments
+    Write-Host "+ $commandText"
+    if ($DryRun) { return }
+    $command = Get-ApplicationCommand "ccc-bootstrap"
+    if (-not $command) {
+        throw "Community Claude Code did not install the 'ccc-bootstrap' command."
+    }
+    Invoke-NativeCommand -FilePath $command.Source -Arguments $Arguments
+}
+
+function Install-CccStartupShortcut {
+    param([string] $DesktopCommand)
+
+    $shortcutPath = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup\Community Claude Code.lnk"
+    Write-Host "+ create startup shortcut $(Format-Argument $shortcutPath) -> $(Format-Argument $DesktopCommand) --auto-started"
+    if ($DryRun) { return }
+
+    $parent = Split-Path -Parent $shortcutPath
+    New-Item -ItemType Directory -Force -Path $parent | Out-Null
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($shortcutPath)
+    $shortcut.TargetPath = $DesktopCommand
+    $shortcut.Arguments = "--auto-started"
+    $shortcut.WorkingDirectory = $env:USERPROFILE
+    $shortcut.Description = "Start Community Claude Code and OpenCode in the background"
+    if ($script:CccIconPath) {
+        $shortcut.IconLocation = "$($script:CccIconPath),0"
+    }
+    $shortcut.Save()
+}
+
 function Configure-AndConfirmCommunityClaudeCode {
     Start-InstallStep "PATH configuration"
     $iconPath = Join-Path $env:USERPROFILE ".ccc\app-icon.ico"
     if ($DryRun) {
         Write-Host "+ uv tool update-shell"
         Write-Host "+ uv tool dir --bin"
-        Write-Host "+ verify ccc-desktop, ccc-server, ccc-claude, ccc-codex, ccc-pi, ccc-opencode, ccc-cline, ccc-hermes, ccc-dsh, ccc-grok, ccc-muse, ccc-aider, and ccc-agy in the uv tool bin directory"
+        Write-Host "+ verify ccc-desktop, ccc-server, ccc-claude, ccc-codex, ccc-pi, ccc-opencode, ccc-cline, ccc-hermes, ccc-dsh, ccc-grok, ccc-muse, ccc-aider, ccc-agy, and ccc-bootstrap in the uv tool bin directory"
         Write-Host "+ ccc-server --version"
         Export-CccDesktopIcon `
             -DesktopCommand "<uv-tool-bin>\ccc-desktop.exe" `
@@ -1885,6 +1900,8 @@ function Configure-AndConfirmCommunityClaudeCode {
         Install-CccDesktopShortcuts `
             -DesktopCommand "<uv-tool-bin>\ccc-desktop.exe" `
             -IconPath $iconPath
+        $script:CccDesktopCommand = "<uv-tool-bin>\ccc-desktop.exe"
+        $script:CccIconPath = $iconPath
         return
     }
 
@@ -1900,7 +1917,7 @@ function Configure-AndConfirmCommunityClaudeCode {
         [IO.Path]::AltDirectorySeparatorChar
     )
     $installedCommands = @{}
-    foreach ($commandName in @("ccc-desktop", "ccc-server", "ccc-claude", "ccc-codex", "ccc-pi", "ccc-opencode", "ccc-cline", "ccc-hermes", "ccc-dsh", "ccc-grok", "ccc-muse", "ccc-aider", "ccc-agy", "ccc-doctor", "ccc-update.cmd")) {
+    foreach ($commandName in @("ccc-desktop", "ccc-server", "ccc-claude", "ccc-codex", "ccc-pi", "ccc-opencode", "ccc-cline", "ccc-hermes", "ccc-dsh", "ccc-grok", "ccc-muse", "ccc-aider", "ccc-agy", "ccc-bootstrap", "ccc-doctor", "ccc-update.cmd")) {
         $command = Get-ApplicationCommand $commandName
         if (-not $command) {
             throw "Community Claude Code installation did not create '$commandName'."
@@ -1924,6 +1941,8 @@ function Configure-AndConfirmCommunityClaudeCode {
     Install-CccDesktopShortcuts `
         -DesktopCommand $installedCommands["ccc-desktop"] `
         -IconPath $iconPath
+    $script:CccDesktopCommand = $installedCommands["ccc-desktop"]
+    $script:CccIconPath = $iconPath
 }
 
 function Test-EquivalentPath {
@@ -1993,45 +2012,14 @@ function Install-CccDesktopShortcuts {
 
 function Show-InstallerNextSteps {
     Write-Host "`nCommunity Claude Code is installed and verified."
+    Write-Host "The CCC proxy is running in the background."
+    Write-Host "Claude Code is configured; run it with: claude"
+    Write-Host "Claude Desktop is configured and ready to use."
+    Write-Host "OpenCode serve runs in the background."
     if ($script:DesktopReady) {
-        Write-Host "Open the Community Claude Code desktop shortcut to run it in the background."
+        Write-Host "The Community Claude Code tray starts automatically at sign-in."
     }
-    Write-Host "For terminal use, start the proxy with: ccc-server"
-    if ($script:InstallClaudeCode) {
-        Write-Host "Run Claude Code with: ccc-claude"
-    }
-    if ($script:InstallCodex) {
-        Write-Host "Run Codex with: ccc-codex"
-    }
-    if ($script:PiAvailable) {
-        Write-Host "Run Pi with: ccc-pi"
-    }
-    if ($script:InstallOpenCode) {
-        Write-Host "Run OpenCode with: ccc-opencode"
-    }
-    if ($script:InstallCline) {
-        Write-Host "Run Cline with: ccc-cline"
-    }
-    if ($script:InstallHermes) {
-        Write-Host "Run Hermes Agent with: ccc-hermes"
-    }
-    if ($script:InstallDsh) {
-        Write-Host "Run DeepSeek Harness with: ccc-dsh"
-    }
-    if ($script:InstallGrok) {
-        Write-Host "Run Grok Build with: ccc-grok"
-    }
-    if ($script:MuseAvailable) {
-        Write-Host "Run Muse Code with: ccc-muse"
-    }
-    if ($script:InstallAider) {
-        Write-Host "Run Aider with: ccc-aider"
-    }
-    if ($script:InstallAgy) {
-        Write-Host "Connect Antigravity CLI on CCC's Integrations page first."
-        Write-Host "Run Antigravity CLI with: ccc-agy"
-    }
-
+    Write-Host "To change models or providers, edit $env:USERPROFILE\.ccc\.env or run ccc-doctor."
 }
 
 function Invoke-SelectedReleaseInstaller {
@@ -2167,24 +2155,8 @@ try {
     $script:OriginalOpenCode = Get-ApplicationCommand "opencode"
     $script:OriginalOpenCodeSearchPath = $env:Path
     Add-KnownBinDirectories
-    $script:InstallCline = [bool] ((Get-ApplicationCommand "cline") -or (Get-ApplicationCommand "npm"))
     Write-Step "Checking for running Community Claude Code processes"
     Assert-NoCccProcessesRunning
-
-    if (-not (Test-InteractiveInstaller)) {
-        $hasDsh = [bool] (Get-ApplicationCommand "dsh")
-        $hasDryRunToolchain = [bool] (
-            $DryRun -and
-            (Get-ApplicationCommand "node") -and
-            (Get-ApplicationCommand "npm")
-        )
-        $script:InstallDsh = $hasDsh -or $hasDryRunToolchain -or (Test-DshToolchain)
-    }
-
-    if (Test-InteractiveInstaller) {
-        Write-Step "Choosing coding agents"
-        Select-CodingAgents
-    }
 
     $script:InstallSteps["uv"] = "Not attempted"
     $selectedAgents = @()
@@ -2201,7 +2173,7 @@ try {
             $selectedAgents += $choice[0]
         }
     }
-    foreach ($name in @("CCC package", "PATH configuration", "CCC verification", "Desktop integration")) {
+    foreach ($name in @("CCC package", "PATH configuration", "CCC verification", "Desktop integration", "Claude Desktop", "Claude integration", "Background services", "Startup configuration", "Claude Desktop launch")) {
         $script:InstallSteps[$name] = "Not attempted"
     }
     if ($script:EnableRtkHeadroom) {
@@ -2213,6 +2185,10 @@ try {
     Write-Host "`nInstallation plan:"
     Write-Host "  Install or update Community Claude Code."
     Write-Host "  Verify or install: $($selectedAgents -join ', ')."
+    Write-Host "  Install or verify Claude Desktop."
+    Write-Host "  Configure Claude Code and Claude Desktop for the CCC proxy."
+    Write-Host "  Start the CCC proxy, OpenCode serve, and free-model shim in the background."
+    Write-Host "  Enable automatic startup at sign-in and open Claude Desktop."
     if ($VoiceLocal) { Write-Host "  Include local voice support." }
     if ($TorchBackend) { Write-Host "  PyTorch backend: $TorchBackend" }
     if ($script:EnableRtkHeadroom) { Write-Host "  Run RTK + Headroom setup for supported selected agents." }
@@ -2230,6 +2206,21 @@ try {
     Install-CommunityClaudeCode
 
     Configure-AndConfirmCommunityClaudeCode
+
+    Start-InstallStep "Claude Desktop" "Ensuring Claude Desktop is installed"
+    Ensure-ClaudeDesktop
+
+    Start-InstallStep "Claude integration" "Configuring Claude Code and Claude Desktop"
+    Invoke-CccBootstrap -Arguments @("configure")
+
+    Start-InstallStep "Background services" "Starting the CCC proxy, OpenCode serve, and free-model shim"
+    Invoke-CccBootstrap -Arguments @("services")
+
+    Start-InstallStep "Startup configuration" "Enabling automatic startup at sign-in"
+    Install-CccStartupShortcut -DesktopCommand $script:CccDesktopCommand
+
+    Start-InstallStep "Claude Desktop launch" "Opening Claude Desktop"
+    Invoke-CccBootstrap -Arguments @("launch-desktop")
 
     if ($script:EnableRtkHeadroom) {
         Start-InstallStep "Headroom verification"

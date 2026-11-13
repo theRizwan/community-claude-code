@@ -101,7 +101,7 @@ class GeminiTransport:
         try:
             async for event in run:
                 yield event
-        except asyncio.CancelledError, GeneratorExit:
+        except (asyncio.CancelledError, GeneratorExit):
             raise
         except Exception as error:
             execution.fail(error)
@@ -252,7 +252,7 @@ class GeminiTransport:
                 for event in recovery.flush():
                     yield event
                 return
-            except asyncio.CancelledError, GeneratorExit:
+            except (asyncio.CancelledError, GeneratorExit):
                 raise
             except Exception as error:
                 normal_stop = presenter.normal_stop_seen if presenter else False

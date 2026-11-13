@@ -54,6 +54,15 @@ def model_order_key(provider_model_ref: str) -> tuple[str, str, str, str]:
     return provider.casefold(), model.casefold(), provider, model
 
 
+_CUSTOM_MODEL_LABELS: dict[str, str] = {
+    "fable-5-free": "Claude Fable 5",
+    "opus-4.5-free": "Claude Opus 4.5",
+    "sonnet-4.5-free": "Claude Sonnet 4.5",
+    "haiku-4.5-free": "Claude Haiku 4.5",
+    "opus-5.5": "Claude Opus 5.5",
+}
+
+
 def read_model_catalog(
     runtime: ModelCatalogPort, settings: Settings | None = None
 ) -> ModelCatalog:
@@ -70,7 +79,7 @@ def read_model_catalog(
     for ref, model in tuple(models.items()):
         provider_id, model_id = split_provider_model_ref(ref)
         if definition := settings.custom_provider(provider_id):
-            display_name = (
+            display_name = _CUSTOM_MODEL_LABELS.get(model_id) or (
                 definition.display_name
                 if model_id == "opus-5.5"
                 else f"{definition.display_name}/{model_id}"

@@ -579,7 +579,7 @@ class OpenAIResponsesTransport:
                     transport="responses",
                 )
                 return
-            except asyncio.CancelledError, GeneratorExit:
+            except (asyncio.CancelledError, GeneratorExit):
                 raise
             except Exception as raw_error:
                 error = _effective_error(raw_error)

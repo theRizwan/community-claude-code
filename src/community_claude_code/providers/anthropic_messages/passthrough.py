@@ -174,7 +174,7 @@ async def stream_native_messages(
                     )
                 execution.succeed()
                 return
-            except asyncio.CancelledError, GeneratorExit:
+            except (asyncio.CancelledError, GeneratorExit):
                 raise
             except Exception as raw_error:
                 error = (
@@ -247,7 +247,7 @@ async def stream_native_messages(
                 if scope is not None:
                     await scope.aclose(active_error=sys.exception())
         raise RuntimeError("Messages execution ended without a terminal result.")
-    except asyncio.CancelledError, GeneratorExit:
+    except (asyncio.CancelledError, GeneratorExit):
         raise
     except Exception as error:
         if isinstance(error, ExecutionFailure):

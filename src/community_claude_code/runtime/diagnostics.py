@@ -220,7 +220,7 @@ def integration_report(settings: Settings) -> dict[str, Any]:
             result[name] = {"status": "available", "connected": status["connected"]}
             if "disconnect_pending" in status:
                 result[name]["disconnect_pending"] = status["disconnect_pending"]
-        except OSError, ValueError:
+        except (OSError, ValueError):
             result[name] = {"status": "unavailable", "connected": None}
     return result
 
@@ -292,7 +292,7 @@ def model_discovery_report(settings: Settings) -> dict[str, Any]:
         )
         response.raise_for_status()
         payload = response.json()
-    except httpx.HTTPError, httpx.InvalidURL, ValueError:
+    except (httpx.HTTPError, httpx.InvalidURL, ValueError):
         return unavailable
     if not isinstance(payload, dict) or payload.get("status") != "running":
         return unavailable

@@ -42,24 +42,26 @@ SHIM_DEFAULT_PORT = 4097
 # Fastest free OpenCode models first. Each public name starts with one of these
 # and falls back through the rest in order.
 FREE_MODELS: tuple[str, ...] = (
-    "opencode/pulse-alpha-free",
     "opencode/glm-5.3-flash-free",
     "opencode/deepseek-v4.1-flash-free",
     "opencode/mimo-v2.6-flash-free",
     "opencode/flint-40b-free",
-    "opencode/nemotron-3.5-lightning-free",
-    "opencode/nemotron-3.5-super-vl-free",
-    "opencode/crouton-alpha-free",
-    "opencode/beam-free",
     "opencode/big-pickle",
+    "opencode/iceman-free",
+    "opencode/minimax-m3.1-flash-free",
+    "opencode/longcat-2.5-free",
+    "opencode/nemotron-3.5-super-vl-free",
+    "opencode/nemotron-3.5-lightning-free",
+    "opencode/beam-free",
+    "opencode/inkling-2-small-free",
 )
 
 DEFAULT_MODEL_BACKENDS: dict[str, str] = {
-    "fable-5-free": "opencode/pulse-alpha-free",
-    "opus-4.5-free": "opencode/glm-5.3-flash-free",
-    "sonnet-4.5-free": "opencode/deepseek-v4.1-flash-free",
-    "haiku-4.5-free": "opencode/mimo-v2.6-flash-free",
-    "opus-5.5": "opencode/pulse-alpha-free",
+    "fable-5-free": "opencode/glm-5.3-flash-free",
+    "opus-4.5-free": "opencode/deepseek-v4.1-flash-free",
+    "sonnet-4.5-free": "opencode/mimo-v2.6-flash-free",
+    "haiku-4.5-free": "opencode/flint-40b-free",
+    "opus-5.5": "opencode/deepseek-v4.1-flash-free",
 }
 
 DEFAULT_PUBLIC_MODEL = "fable-5-free"

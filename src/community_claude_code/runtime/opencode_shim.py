@@ -33,36 +33,17 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
 
+from community_claude_code.harnesses.free_models import (
+    DEFAULT_MODEL_BACKENDS,
+    FREE_MODELS,
+    build_default_chains,
+)
+
 LOG = logging.getLogger("ccc.shim")
 
 OPENCODE_SERVE_HOST = "127.0.0.1"
 OPENCODE_SERVE_PORT = 4096
 SHIM_DEFAULT_PORT = 4097
-
-# Fastest free OpenCode models first. Each public name starts with one of these
-# and falls back through the rest in order.
-FREE_MODELS: tuple[str, ...] = (
-    "opencode/glm-5.3-flash-free",
-    "opencode/deepseek-v4.1-flash-free",
-    "opencode/mimo-v2.6-flash-free",
-    "opencode/flint-40b-free",
-    "opencode/big-pickle",
-    "opencode/iceman-free",
-    "opencode/minimax-m3.1-flash-free",
-    "opencode/longcat-2.5-free",
-    "opencode/nemotron-3.5-super-vl-free",
-    "opencode/nemotron-3.5-lightning-free",
-    "opencode/beam-free",
-    "opencode/inkling-2-small-free",
-)
-
-DEFAULT_MODEL_BACKENDS: dict[str, str] = {
-    "fable-5-free": "opencode/glm-5.3-flash-free",
-    "opus-4.5-free": "opencode/deepseek-v4.1-flash-free",
-    "sonnet-4.5-free": "opencode/mimo-v2.6-flash-free",
-    "haiku-4.5-free": "opencode/flint-40b-free",
-    "opus-5.5": "opencode/deepseek-v4.1-flash-free",
-}
 
 DEFAULT_PUBLIC_MODEL = "fable-5-free"
 
@@ -87,23 +68,6 @@ SAFETY_SUFFIX = (
     "Never call or use tools. Answer the user's latest message directly."
 )
 MAX_TRANSCRIPT_CHARS = 96_000
-
-
-def build_default_chains() -> dict[str, list[tuple[str, str]]]:
-    """Return the public-model to free-backend chain mapping."""
-
-    chains: dict[str, list[tuple[str, str]]] = {}
-    for public, primary in DEFAULT_MODEL_BACKENDS.items():
-        ordered = [primary, *(model for model in FREE_MODELS if model != primary)]
-        chains[public] = [_split_ref(model) for model in ordered]
-    return chains
-
-
-def _split_ref(value: str) -> tuple[str, str]:
-    provider, separator, model = value.strip().partition("/")
-    if not separator or not provider or not model:
-        raise ValueError(f"Expected provider/model, got {value!r}")
-    return provider, model
 
 
 class UpstreamError(RuntimeError):

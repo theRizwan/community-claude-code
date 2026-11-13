@@ -194,6 +194,7 @@ def _clear_process_config(monkeypatch) -> None:
         "CLOUDFLARE_ACCOUNT_ID",
         "GITHUB_MODELS_TOKEN",
         "SAMBANOVA_API_KEY",
+        "CEREBRAS_API_KEY",
         "HOST",
         "PORT",
         "CCC_OPEN_BROWSER",

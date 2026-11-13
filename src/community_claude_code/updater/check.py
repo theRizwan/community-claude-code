@@ -4,6 +4,7 @@ import argparse
 import re
 import sys
 from importlib.metadata import PackageNotFoundError, version
+from urllib.parse import urljoin
 
 import httpx
 from packaging.version import Version
@@ -21,10 +22,21 @@ def main(argv: list[str] | None = None) -> int:
         installed = Version(version("community-claude-code"))
         if str(installed) == "0+unknown":
             raise ValueError("installed CCC version is unknown")
-        with httpx.Client(
-            timeout=10.0, follow_redirects=True, max_redirects=5
-        ) as client:
+        with httpx.Client(timeout=10.0, follow_redirects=False) as client:
             response = client.get(RELEASE_URL + "latest")
+            if response.is_redirect:
+                redirect_target = response.headers.get("Location")
+                if redirect_target is None:
+                    raise ValueError("GitHub did not return a release redirect target")
+                resolved_target = urljoin(str(response.url), redirect_target)
+                selected = re.fullmatch(
+                    re.escape(RELEASE_URL)
+                    + r"tag/v((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))",
+                    resolved_target,
+                )
+                if selected is None:
+                    raise ValueError("GitHub did not return a canonical CCC release URL")
+                response = client.get(resolved_target)
             response.raise_for_status()
             selected = re.fullmatch(
                 re.escape(RELEASE_URL)

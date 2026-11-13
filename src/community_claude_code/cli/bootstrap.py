@@ -28,7 +28,7 @@ from community_claude_code.harnesses import (
     claude_cli_settings,
     claude_desktop_integration,
 )
-from community_claude_code.runtime.opencode_shim import (
+from community_claude_code.harnesses.free_models import (
     DEFAULT_MODEL_BACKENDS,
     SHIM_DEFAULT_PORT,
     build_default_chains,

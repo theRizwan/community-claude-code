@@ -1043,7 +1043,15 @@ function Assert-NoOpenCodeProcessesRunning {
     catch {
         # Not our reusable v1 server; replacing it requires stopping it.
     }
-    throw "Close OpenCode before replacing its executable or RTK plugin, then rerun the installer."
+    Write-Host "OpenCode is running; closing it so the installer can update its executable or RTK plugin."
+    foreach ($process in $running) {
+        try { $process.CloseMainWindow() | Out-Null } catch {}
+    }
+    Start-Sleep -Seconds 2
+    foreach ($process in @(Get-Process -Name opencode,opencode2 -ErrorAction SilentlyContinue)) {
+        try { Stop-Process -Id $process.Id -Force -ErrorAction Stop } catch {}
+    }
+    Start-Sleep -Seconds 1
 }
 
 function Install-OpenCode {

@@ -79,7 +79,7 @@ def launch(argv: Sequence[str] | None = None) -> None:
     if args in (["--connect"], ["--disconnect"]):
         try:
             url = local_admin_url(get_settings()) + "/integrations"
-        except OSError, ValueError:
+        except (OSError, ValueError):
             print(
                 "Could not load CCC settings. Run ccc-server to check the configuration.",
                 file=sys.stderr,

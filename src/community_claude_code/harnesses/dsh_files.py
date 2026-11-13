@@ -65,7 +65,7 @@ def read_yaml(path: Path, *, sequence: bool = False) -> CommentedMap | Commented
         source = ""
     try:
         document = yaml_parser().load(source)
-    except YAMLError, UnicodeError:
+    except (YAMLError, UnicodeError):
         # YAML parser messages can quote a line containing a credential.
         raise DshConfigError(
             f"Invalid YAML in {path.name}. Correct it and retry."

@@ -39,11 +39,13 @@ def config_root() -> Path:
     home = Path.home()
     if sys.platform == "win32":
         parent = Path(os.environ.get("LOCALAPPDATA") or home / "AppData/Local")
-        packaged = sorted(
-            parent.glob("Packages/Claude_*/LocalCache/Local/Claude-3p")
-        )
+        packaged = sorted(parent.glob("Packages/Claude_*/LocalCache/Local/Claude-3p"))
         if packaged:
             return packaged[0]
+        # A fresh MSIX install has the package folder before its data is created.
+        packages = sorted(parent.glob("Packages/Claude_*"))
+        if packages:
+            return packages[0] / "LocalCache" / "Local" / "Claude-3p"
     elif sys.platform == "darwin":
         parent = home / "Library/Application Support"
     else:
@@ -316,7 +318,7 @@ def _disconnect_intent(path: Path, root: Path) -> bool | None:
 def _empty_profile(path: Path) -> bool:
     try:
         return _read(path) == {}
-    except ValueError, UnicodeError:
+    except (ValueError, UnicodeError):
         # A user may change the neutral profile between a failure and retry.
         return False
 
